@@ -66,6 +66,9 @@ public class SecurityConfig {
             .authorizeRequests()
                 // 放行登录接口
                 .antMatchers("/api/auth/login", "/api/auth/register").permitAll()
+                // 放行文件上传接口（需要登录才能上传，所以不放行）
+                // 放行静态资源
+                .antMatchers("/uploads/**").permitAll()
                 // 其他请求需要认证
                 .anyRequest().authenticated()
             .and()

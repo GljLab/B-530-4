@@ -44,11 +44,14 @@
         <el-table-column label="楼宇图片" width="120" align="center">
           <template #default="{ row }">
             <el-image
+              :key="row.id"
               :src="row.mainImage || ''"
               :preview-src-list="getImageList(row)"
+              :preview-teleported="true"
               fit="cover"
               class="building-image"
               style="width: 80px; height: 60px; border-radius: 4px;"
+              @click.stop
             >
               <template #error>
                 <div class="image-error">
@@ -87,9 +90,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleView(row)">查看</el-button>
+            <el-button type="success" size="small" @click="handleImage(row)">图片</el-button>
             <el-button type="warning" size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
@@ -123,11 +127,20 @@
             <el-radio :label="3">综合楼</el-radio>
           </el-radio-group>
         </el-form-item>
+        <el-form-item label="楼宇子类型">
+          <el-input v-model="form.buildingSubType" placeholder="如：普通住宅/高层住宅/别墅" />
+        </el-form-item>
         <el-form-item label="地上楼层" prop="totalFloors">
           <el-input-number v-model="form.totalFloors" :min="0" :max="200" style="width: 100%" />
         </el-form-item>
         <el-form-item label="地下楼层" prop="undergroundFloors">
           <el-input-number v-model="form.undergroundFloors" :min="0" :max="20" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="建筑结构">
+          <el-input v-model="form.structureType" placeholder="如：框架/砖混/钢结构" />
+        </el-form-item>
+        <el-form-item label="建成年份">
+          <el-input-number v-model="form.builtYear" :min="1900" :max="2100" style="width: 100%" />
         </el-form-item>
         <el-form-item label="客梯数量" prop="passengerElevators">
           <el-input-number v-model="form.passengerElevators" :min="0" :max="50" style="width: 100%" />
@@ -145,20 +158,69 @@
         <el-form-item label="楼宇简介">
           <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入楼宇简介" />
         </el-form-item>
+        <el-form-item label="主图URL">
+          <el-input v-model="form.mainImage" placeholder="请输入主图URL" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="imageDialogVisible" title="楼宇图片管理" width="800px" destroy-on-close>
+      <div class="image-upload-area">
+        <el-upload
+          class="image-uploader"
+          :action="uploadAction"
+          :headers="uploadHeaders"
+          list-type="picture-card"
+          :file-list="uploadFileList"
+          :on-success="handleUploadSuccess"
+          :on-remove="handleUploadRemove"
+          :on-change="handleUploadChange"
+          :limit="9"
+          multiple
+          accept="image/jpeg,image/png,image/jpg"
+        >
+          <el-icon><Plus /></el-icon>
+        </el-upload>
+        <div class="upload-tip">
+          <el-text type="info" size="small">支持 jpg、png 格式，单张不超过 5MB，最多上传 9 张图片</el-text>
+        </div>
+      </div>
+      <div class="image-list-area">
+        <h4 class="image-list-title">已上传图片</h4>
+        <div v-if="buildingImageList.length > 0" class="image-grid">
+          <div v-for="(img, index) in buildingImageList" :key="index" class="image-item">
+            <el-image :src="img.imageUrl" fit="cover" class="item-image" :preview-src-list="getAllImageUrls()" :initial-index="index" :preview-teleported="true" />
+            <div class="image-actions">
+              <el-button type="primary" size="small" circle @click="setAsMain(index)" v-if="!img.isMain">
+                <el-icon><Star /></el-icon>
+              </el-button>
+              <el-tag v-else type="warning" size="small" effect="dark">主图</el-tag>
+              <el-button type="danger" size="small" circle @click="removeImage(index)">
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </div>
+            <div class="image-name">{{ img.imageName || `图片${index + 1}` }}</div>
+          </div>
+        </div>
+        <el-empty v-else description="暂无图片" :image-size="80" />
+      </div>
+      <template #footer>
+        <el-button @click="imageDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSaveImages" :loading="imageSaveLoading">保存图片</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, Picture } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, Picture, Star, Delete } from '@element-plus/icons-vue'
 import api from '@/api'
 
 const router = useRouter()
@@ -169,9 +231,22 @@ const tableData = ref([])
 const total = ref(0)
 const formRef = ref(null)
 
+const imageDialogVisible = ref(false)
+const imageSaveLoading = ref(false)
+const currentBuildingId = ref(null)
+const buildingImageList = ref([])
+const uploadFileList = ref([])
+
+const uploadAction = '/api/common/upload'
+const uploadHeaders = computed(() => {
+  const token = localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+})
+
 const queryForm = reactive({
   pageNum: 1,
   pageSize: 10,
+  parkId: 1,
   buildingName: '',
   buildingType: null,
   status: null
@@ -179,15 +254,20 @@ const queryForm = reactive({
 
 const form = reactive({
   id: null,
+  parkId: 1,
   buildingName: '',
   buildingCode: '',
   buildingType: 1,
+  buildingSubType: '',
   totalFloors: 0,
   undergroundFloors: 0,
+  structureType: '',
+  builtYear: null,
   passengerElevators: 0,
   freightElevators: 0,
   status: 1,
-  description: ''
+  description: '',
+  mainImage: ''
 })
 
 const dialogTitle = computed(() => form.id ? '编辑楼宇' : '新增楼宇')
@@ -235,6 +315,20 @@ const getStatusTagType = (status) => {
   return statusMap[status] || 'info'
 }
 
+const getImageList = (row) => {
+  if (row.images && row.images.length > 0) {
+    return row.images.map(img => img.imageUrl || img)
+  }
+  if (row.mainImage) {
+    return [row.mainImage]
+  }
+  return []
+}
+
+const getAllImageUrls = () => {
+  return buildingImageList.value.map(img => img.imageUrl)
+}
+
 const loadData = async () => {
   loading.value = true
   try {
@@ -260,27 +354,22 @@ const handleReset = () => {
   handleSearch()
 }
 
-const getImageList = (row) => {
-  if (row.images && row.images.length > 0) {
-    return row.images.map(img => img.imageUrl || img)
-  }
-  if (row.mainImage) {
-    return [row.mainImage]
-  }
-  return []
-}
-
 const resetForm = () => {
   form.id = null
+  form.parkId = 1
   form.buildingName = ''
   form.buildingCode = ''
   form.buildingType = 1
+  form.buildingSubType = ''
   form.totalFloors = 0
   form.undergroundFloors = 0
+  form.structureType = ''
+  form.builtYear = null
   form.passengerElevators = 0
   form.freightElevators = 0
   form.status = 1
   form.description = ''
+  form.mainImage = ''
 }
 
 const handleAdd = () => {
@@ -294,15 +383,20 @@ const handleEdit = async (row) => {
     const res = await api.parkBuilding.getById(row.id)
     Object.assign(form, {
       id: res.data.id,
+      parkId: res.data.parkId || 1,
       buildingName: res.data.buildingName,
       buildingCode: res.data.buildingCode,
       buildingType: res.data.buildingType,
+      buildingSubType: res.data.buildingSubType || '',
       totalFloors: res.data.totalFloors || 0,
       undergroundFloors: res.data.undergroundFloors || 0,
+      structureType: res.data.structureType || '',
+      builtYear: res.data.builtYear || null,
       passengerElevators: res.data.passengerElevators || 0,
       freightElevators: res.data.freightElevators || 0,
       status: res.data.status,
-      description: res.data.description || ''
+      description: res.data.description || '',
+      mainImage: res.data.mainImage || ''
     })
     dialogVisible.value = true
   } catch (error) {
@@ -316,6 +410,7 @@ const handleSubmit = async () => {
     if (!valid) return
     submitLoading.value = true
     try {
+      form.parkId = form.parkId || 1
       if (form.id) {
         await api.parkBuilding.update(form)
         ElMessage.success('修改成功')
@@ -339,14 +434,89 @@ const handleView = (row) => {
 
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm(`确定删除楼宇 "${row.buildingName}" 吗？`, '提示', { type: 'warning' })
+    await ElMessageBox.confirm(`确定删除楼宇 "${row.buildingName}" 吗？删除前请确保该楼宇下没有楼层。`, '提示', { type: 'warning' })
     await api.parkBuilding.delete(row.id)
     ElMessage.success('删除成功')
     loadData()
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('删除失败')
+      ElMessage.error(error.message || '删除失败')
     }
+  }
+}
+
+const handleImage = async (row) => {
+  currentBuildingId.value = row.id
+  buildingImageList.value = []
+  uploadFileList.value = []
+  try {
+    const res = await api.parkBuilding.getImages(row.id)
+    buildingImageList.value = res.data || []
+  } catch (error) {
+    ElMessage.error('加载图片失败')
+  }
+  imageDialogVisible.value = true
+}
+
+const handleUploadSuccess = (response, file, fileList) => {
+  if (response.code === 200 || response.code === 0) {
+    const imageUrl = response.data?.url || response.data || response.url
+    if (imageUrl) {
+      buildingImageList.value.push({
+        imageUrl: imageUrl,
+        imageName: file.name,
+        isMain: buildingImageList.value.length === 0 ? 1 : 0,
+        sortOrder: buildingImageList.value.length
+      })
+      if (buildingImageList.value.length === 1) {
+        ElMessage.success('第一张图片自动设为主图')
+      }
+    }
+  } else {
+    ElMessage.error(response.message || '上传失败')
+  }
+}
+
+const handleUploadRemove = (file, fileList) => {
+}
+
+const handleUploadChange = (file, fileList) => {
+  uploadFileList.value = fileList
+}
+
+const setAsMain = (index) => {
+  buildingImageList.value.forEach((img, i) => {
+    img.isMain = i === index ? 1 : 0
+  })
+  ElMessage.success('已设为主图')
+}
+
+const removeImage = (index) => {
+  const removedImg = buildingImageList.value[index]
+  buildingImageList.value.splice(index, 1)
+  if (removedImg.isMain && buildingImageList.value.length > 0) {
+    buildingImageList.value[0].isMain = 1
+  }
+  buildingImageList.value.forEach((img, i) => {
+    img.sortOrder = i
+  })
+}
+
+const handleSaveImages = async () => {
+  if (!currentBuildingId.value) {
+    ElMessage.error('请先保存楼宇信息')
+    return
+  }
+  imageSaveLoading.value = true
+  try {
+    await api.parkBuilding.saveImages(currentBuildingId.value, buildingImageList.value)
+    ElMessage.success('图片保存成功')
+    imageDialogVisible.value = false
+    loadData()
+  } catch (error) {
+    ElMessage.error(error.message || '保存失败')
+  } finally {
+    imageSaveLoading.value = false
   }
 }
 
@@ -390,5 +560,70 @@ onMounted(() => {
 .pagination {
   margin-top: 20px;
   justify-content: flex-end;
+}
+
+.image-upload-area {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.upload-tip {
+  margin-top: 8px;
+}
+
+.image-list-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.image-item {
+  position: relative;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.image-item:hover {
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.item-image {
+  width: 100%;
+  height: 120px;
+}
+
+.image-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.image-item:hover .image-actions {
+  opacity: 1;
+}
+
+.image-name {
+  padding: 8px;
+  font-size: 12px;
+  color: #606266;
+  text-align: center;
+  background-color: #fafafa;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

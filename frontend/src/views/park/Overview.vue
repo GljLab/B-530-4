@@ -9,6 +9,11 @@
               {{ parkTypeLabel }}
             </el-tag>
           </div>
+          <div class="park-actions">
+            <el-button type="primary" @click="handleEdit" v-if="canEdit">
+              <el-icon><Edit /></el-icon>编辑园区
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -17,13 +22,18 @@
           <el-descriptions-item label="地址">{{ parkInfo.address || '-' }}</el-descriptions-item>
           <el-descriptions-item label="物业公司">{{ parkInfo.propertyCompany || '-' }}</el-descriptions-item>
           <el-descriptions-item label="联系电话">{{ parkInfo.contactPhone || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="客服热线">{{ parkInfo.serviceHotline || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="建成时间">{{ parkInfo.builtTime || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="占地面积">{{ parkInfo.landArea ? parkInfo.landArea + ' ㎡' : '-' }}</el-descriptions-item>
           <el-descriptions-item label="建筑面积">{{ parkInfo.buildingArea ? parkInfo.buildingArea + ' ㎡' : '-' }}</el-descriptions-item>
+          <el-descriptions-item label="绿化率">{{ parkInfo.greenRate ? parkInfo.greenRate + '%' : '-' }}</el-descriptions-item>
+          <el-descriptions-item label="园区简介" :span="2">{{ parkInfo.description || '-' }}</el-descriptions-item>
         </el-descriptions>
       </div>
 
       <el-carousel v-if="parkImages.length > 0" class="park-carousel" height="360px" :interval="4000" arrow="always">
         <el-carousel-item v-for="(img, index) in parkImages" :key="index">
-          <img :src="img.imageUrl" :alt="img.imageName || `园区图片${index + 1}`" class="carousel-image" />
+          <el-image :src="img.imageUrl" :alt="img.imageName || `园区图片${index + 1}`" class="carousel-image" fit="cover" :preview-src-list="allImageUrls" :initial-index="index" :preview-teleported="true" />
         </el-carousel-item>
       </el-carousel>
       <el-empty v-else description="暂无图片" class="empty-carousel" />
@@ -64,6 +74,7 @@
               <el-icon :size="32"><component :is="getFacilityIcon(item.facilityType) || 'SetUp'" /></el-icon>
             </div>
             <div class="facility-name">{{ item.facilityName }}</div>
+            <div class="facility-location">{{ item.location || '' }}</div>
           </div>
         </div>
         <el-empty v-else description="暂无配套设施" />
@@ -83,6 +94,59 @@
         </div>
       </div>
     </el-card>
+
+    <el-dialog v-model="editDialogVisible" title="编辑园区信息" width="700px" destroy-on-close>
+      <el-form ref="editFormRef" :model="editForm" :rules="editRules" label-width="100px">
+        <el-form-item label="园区名称" prop="parkName">
+          <el-input v-model="editForm.parkName" placeholder="请输入园区名称" />
+        </el-form-item>
+        <el-form-item label="园区类型" prop="parkType">
+          <el-radio-group v-model="editForm.parkType">
+            <el-radio :label="1">住宅小区</el-radio>
+            <el-radio :label="2">商业写字楼</el-radio>
+            <el-radio :label="3">产业园区</el-radio>
+            <el-radio :label="4">综合体</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="详细地址" prop="address">
+          <el-input v-model="editForm.address" placeholder="请输入详细地址" />
+        </el-form-item>
+        <el-form-item label="经度">
+          <el-input v-model="editForm.longitude" placeholder="请输入经度" />
+        </el-form-item>
+        <el-form-item label="纬度">
+          <el-input v-model="editForm.latitude" placeholder="请输入纬度" />
+        </el-form-item>
+        <el-form-item label="物业公司">
+          <el-input v-model="editForm.propertyCompany" placeholder="请输入物业公司名称" />
+        </el-form-item>
+        <el-form-item label="联系电话">
+          <el-input v-model="editForm.contactPhone" placeholder="请输入联系电话" />
+        </el-form-item>
+        <el-form-item label="客服热线">
+          <el-input v-model="editForm.serviceHotline" placeholder="请输入客服热线" />
+        </el-form-item>
+        <el-form-item label="建成时间">
+          <el-date-picker v-model="editForm.builtTime" type="date" placeholder="请选择建成时间" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="占地面积">
+          <el-input-number v-model="editForm.landArea" :min="0" :precision="2" :step="100" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="建筑面积">
+          <el-input-number v-model="editForm.buildingArea" :min="0" :precision="2" :step="100" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="绿化率(%)">
+          <el-input-number v-model="editForm.greenRate" :min="0" :max="100" :precision="1" :step="0.5" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="园区简介">
+          <el-input v-model="editForm.description" type="textarea" :rows="3" placeholder="请输入园区简介" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleEditSubmit" :loading="submitLoading">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -90,21 +154,56 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { OfficeBuilding, Grid, SetUp } from '@element-plus/icons-vue'
+import { OfficeBuilding, Grid, SetUp, Edit } from '@element-plus/icons-vue'
 import api from '@/api'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const loading = ref(false)
+const submitLoading = ref(false)
+const editDialogVisible = ref(false)
+const editFormRef = ref(null)
 
 const parkInfo = reactive({
   id: null,
   parkName: '',
   parkType: 1,
   address: '',
+  longitude: null,
+  latitude: null,
   propertyCompany: '',
   contactPhone: '',
-  buildingArea: null
+  serviceHotline: '',
+  builtTime: '',
+  landArea: null,
+  buildingArea: null,
+  greenRate: null,
+  description: '',
+  mainImage: ''
 })
+
+const editForm = reactive({
+  id: null,
+  parkName: '',
+  parkType: 1,
+  address: '',
+  longitude: null,
+  latitude: null,
+  propertyCompany: '',
+  contactPhone: '',
+  serviceHotline: '',
+  builtTime: '',
+  landArea: null,
+  buildingArea: null,
+  greenRate: null,
+  description: ''
+})
+
+const editRules = {
+  parkName: [{ required: true, message: '请输入园区名称', trigger: 'blur' }],
+  parkType: [{ required: true, message: '请选择园区类型', trigger: 'change' }]
+}
 
 const parkImages = ref([])
 const facilityList = ref([])
@@ -112,6 +211,14 @@ const facilityList = ref([])
 const statsData = reactive({
   totalBuildings: 0,
   totalFloors: 0
+})
+
+const canEdit = computed(() => {
+  return userStore.hasPermission('park:overview:edit')
+})
+
+const allImageUrls = computed(() => {
+  return parkImages.value.map(img => img.imageUrl)
 })
 
 const parkTypeLabel = computed(() => {
@@ -137,16 +244,12 @@ const parkTypeTagType = computed(() => {
 const getFacilityIcon = (iconName) => {
   if (!iconName) return null
   const iconMap = {
-    'parking': 'Van',
-    'gym': 'Cpu',
-    'swimming': 'Cpu',
-    'restaurant': 'Cpu',
-    'cafe': 'Cpu',
-    'supermarket': 'Cpu',
-    'bank': 'Cpu',
-    'hospital': 'Cpu',
-    'school': 'Cpu',
-    'garden': 'Cpu'
+    '停车场': 'Van',
+    '健身房': 'Cpu',
+    '游泳池': 'Cpu',
+    '超市': 'Cpu',
+    '幼儿园': 'Cpu',
+    '物业服务中心': 'Cpu'
   }
   return iconMap[iconName] || null
 }
@@ -207,6 +310,44 @@ const loadAllData = async () => {
   }
 }
 
+const handleEdit = () => {
+  Object.assign(editForm, {
+    id: parkInfo.id,
+    parkName: parkInfo.parkName || '',
+    parkType: parkInfo.parkType || 1,
+    address: parkInfo.address || '',
+    longitude: parkInfo.longitude || null,
+    latitude: parkInfo.latitude || null,
+    propertyCompany: parkInfo.propertyCompany || '',
+    contactPhone: parkInfo.contactPhone || '',
+    serviceHotline: parkInfo.serviceHotline || '',
+    builtTime: parkInfo.builtTime || '',
+    landArea: parkInfo.landArea || null,
+    buildingArea: parkInfo.buildingArea || null,
+    greenRate: parkInfo.greenRate || null,
+    description: parkInfo.description || ''
+  })
+  editDialogVisible.value = true
+}
+
+const handleEditSubmit = async () => {
+  if (!editFormRef.value) return
+  await editFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    submitLoading.value = true
+    try {
+      await api.parkInfo.update(editForm)
+      ElMessage.success('保存成功')
+      editDialogVisible.value = false
+      loadParkInfo()
+    } catch (error) {
+      ElMessage.error(error.message || '保存失败')
+    } finally {
+      submitLoading.value = false
+    }
+  })
+}
+
 const goToBuilding = () => {
   router.push('/park/building')
 }
@@ -229,6 +370,12 @@ onMounted(() => {
   border-radius: 8px;
 }
 
+.park-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .park-header .park-title {
   display: flex;
   align-items: center;
@@ -246,6 +393,11 @@ onMounted(() => {
   margin-left: 8px;
 }
 
+.park-actions {
+  display: flex;
+  gap: 10px;
+}
+
 .park-info {
   margin-bottom: 24px;
 }
@@ -260,6 +412,7 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  cursor: pointer;
 }
 
 .empty-carousel {
@@ -365,6 +518,13 @@ onMounted(() => {
   font-size: 13px;
   color: #606266;
   text-align: center;
+  font-weight: 500;
+}
+
+.facility-location {
+  font-size: 11px;
+  color: #909399;
+  margin-top: 2px;
 }
 
 .quick-entry-section {
