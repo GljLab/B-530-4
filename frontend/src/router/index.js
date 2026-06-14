@@ -29,6 +29,42 @@ const routes = [
         meta: { title: '个人中心', icon: 'User' }
       },
       {
+        path: 'park/overview',
+        name: 'ParkOverview',
+        component: () => import('@/views/park/Overview.vue'),
+        meta: { title: '园区概览', icon: 'HomeFilled', permission: 'park:overview:list' }
+      },
+      {
+        path: 'park/building',
+        name: 'ParkBuilding',
+        component: () => import('@/views/park/Building.vue'),
+        meta: { title: '楼宇管理', icon: 'OfficeBuilding', permission: 'park:building:list' }
+      },
+      {
+        path: 'park/floor',
+        name: 'ParkFloor',
+        component: () => import('@/views/park/Floor.vue'),
+        meta: { title: '楼层管理', icon: 'Grid', permission: 'park:floor:list' }
+      },
+      {
+        path: 'park/dashboard',
+        name: 'ParkDashboard',
+        component: () => import('@/views/park/Dashboard.vue'),
+        meta: { title: '统计看板', icon: 'DataAnalysis', permission: 'park:dashboard:list' }
+      },
+      {
+        path: 'park/building/detail/:id',
+        name: 'ParkBuildingDetail',
+        component: () => import('@/views/park/BuildingDetail.vue'),
+        meta: { title: '楼宇详情', icon: 'OfficeBuilding', permission: 'park:building:list', hidden: true }
+      },
+      {
+        path: 'park/floor/detail/:id',
+        name: 'ParkFloorDetail',
+        component: () => import('@/views/park/FloorDetail.vue'),
+        meta: { title: '楼层详情', icon: 'Grid', permission: 'park:floor:list', hidden: true }
+      },
+      {
         path: 'system/user',
         name: 'SystemUser',
         component: () => import('@/views/system/User.vue'),
@@ -70,7 +106,7 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach(async (to, from, next) => {
   // 设置页面标题
-  document.title = to.meta.title ? `${to.meta.title} - 多重权限管理系统` : '多重权限管理系统'
+  document.title = to.meta.title ? `${to.meta.title} - 智慧园区物业管理系统` : '智慧园区物业管理系统'
   
   const userStore = useUserStore()
   const token = userStore.token

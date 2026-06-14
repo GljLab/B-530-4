@@ -1,11 +1,11 @@
-# 多重权限管理系统
+# 智慧园区物业管理系统
 
 ## 项目简介
 
-基于 **Spring Boot + MyBatis-Flex + Vue + JWT + MySQL** 的企业级多重权限管理系统，实现用户、角色、菜单权限、授权、数据权限的精细化管理。
+基于 **Spring Boot + MyBatis-Flex + Vue + JWT + MySQL** 的智慧园区/物业管理系统，集成园区信息管理、楼宇管理、楼层管理、统计看板等功能，并配套完善的用户角色权限体系，为后续房产管理、业主管理、车位管理等功能奠定基础。
 
 > [!NOTE]
-> **技术说明**: 原始需求中的 "mybatis-flux" 为笔误，实际采用的是 **MyBatis-Flex** 技术栈。MyBatis-Flex 是一个优雅的 MyBatis 增强框架，提供了更简洁的 API 和更好的性能。
+> **技术说明**: 采用 **MyBatis-Flex** 作为 ORM 框架。MyBatis-Flex 是一个优雅的 MyBatis 增强框架，提供了更简洁的 API 和更好的性能。
 
 ## 技术栈
 

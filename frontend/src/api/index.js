@@ -121,6 +121,48 @@ const api = {
     save: (data) => request.post('/system/dataPermission', data),
     deleteByRoleId: (roleId) => request.delete(`/system/dataPermission/role/${roleId}`),
     getScopeTypes: () => request.get('/system/dataPermission/scopeTypes')
+  },
+
+  // 园区信息
+  parkInfo: {
+    getInfo: () => request.get('/park/info'),
+    getDetail: (id) => request.get(`/park/info/${id}`),
+    update: (data) => request.put('/park/info', data),
+    getFacilities: (parkId) => request.get(`/park/info/facility/${parkId}`),
+    saveFacilities: (parkId, data) => request.put(`/park/info/facility/${parkId}`, data),
+    getImages: (parkId) => request.get(`/park/info/image/${parkId}`),
+    saveImages: (parkId, data) => request.put(`/park/info/image/${parkId}`, data)
+  },
+
+  // 楼宇管理
+  parkBuilding: {
+    list: (params) => request.get('/park/building/list', { params }),
+    listAll: (params) => request.get('/park/building/listAll', { params }),
+    getById: (id) => request.get(`/park/building/${id}`),
+    getDetail: (id) => request.get(`/park/building/detail/${id}`),
+    add: (data) => request.post('/park/building', data),
+    update: (data) => request.put('/park/building', data),
+    delete: (id) => request.delete(`/park/building/${id}`),
+    getImages: (buildingId) => request.get(`/park/building/image/${buildingId}`),
+    saveImages: (buildingId, data) => request.put(`/park/building/image/${buildingId}`, data)
+  },
+
+  // 楼层管理
+  parkFloor: {
+    listByBuilding: (buildingId) => request.get(`/park/floor/list/${buildingId}`),
+    getById: (id) => request.get(`/park/floor/${id}`),
+    add: (data) => request.post('/park/floor', data),
+    update: (data) => request.put('/park/floor', data),
+    delete: (id) => request.delete(`/park/floor/${id}`)
+  },
+
+  // 统计看板
+  parkStats: {
+    overview: () => request.get('/park/stats/overview'),
+    buildingType: () => request.get('/park/stats/buildingType'),
+    floorPurpose: () => request.get('/park/stats/floorPurpose'),
+    buildingStatus: () => request.get('/park/stats/buildingStatus'),
+    buildingList: () => request.get('/park/stats/buildingList')
   }
 }
 

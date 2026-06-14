@@ -3,8 +3,8 @@
     <!-- 侧边栏 -->
     <el-aside :width="isCollapse ? '64px' : '220px'" class="layout-aside">
       <div class="logo">
-        <span v-if="!isCollapse">权限管理系统</span>
-        <span v-else>权</span>
+        <span v-if="!isCollapse">智慧园区物业系统</span>
+        <span v-else>园</span>
       </div>
       
       <el-menu
@@ -20,6 +20,33 @@
           <el-icon><HomeFilled /></el-icon>
           <template #title>首页</template>
         </el-menu-item>
+        
+        <el-sub-menu index="/park" v-if="hasParkPermission">
+          <template #title>
+            <el-icon><OfficeBuilding /></el-icon>
+            <span>园区管理</span>
+          </template>
+          
+          <el-menu-item index="/park/overview" v-if="hasPermission('park:overview:list')">
+            <el-icon><HomeFilled /></el-icon>
+            <span>园区概览</span>
+          </el-menu-item>
+          
+          <el-menu-item index="/park/building" v-if="hasPermission('park:building:list')">
+            <el-icon><OfficeBuilding /></el-icon>
+            <span>楼宇管理</span>
+          </el-menu-item>
+          
+          <el-menu-item index="/park/floor" v-if="hasPermission('park:floor:list')">
+            <el-icon><Grid /></el-icon>
+            <span>楼层管理</span>
+          </el-menu-item>
+          
+          <el-menu-item index="/park/dashboard" v-if="hasPermission('park:dashboard:list')">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>统计看板</span>
+          </el-menu-item>
+        </el-sub-menu>
         
         <el-sub-menu index="/system" v-if="hasSystemPermission">
           <template #title>
@@ -109,7 +136,8 @@ import { useUserStore } from '@/stores/user'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import {
   HomeFilled, Setting, User, Avatar, Menu, Lock,
-  Expand, Fold, ArrowDown, SwitchButton
+  Expand, Fold, ArrowDown, SwitchButton,
+  OfficeBuilding, Grid, DataAnalysis
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -123,6 +151,13 @@ const activeMenu = computed(() => route.path)
 const hasPermission = (permission) => {
   return userStore.hasPermission(permission)
 }
+
+const hasParkPermission = computed(() => {
+  return hasPermission('park:overview:list') ||
+         hasPermission('park:building:list') ||
+         hasPermission('park:floor:list') ||
+         hasPermission('park:dashboard:list')
+})
 
 const hasSystemPermission = computed(() => {
   return hasPermission('system:user:list') ||

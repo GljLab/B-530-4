@@ -55,6 +55,32 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
         
+        // 检查物业管理员用户密码
+        checkAndResetPassword("property_admin");
+        
+        // 检查物业经理用户密码
+        checkAndResetPassword("property_manager");
+        
+        // 检查客服人员用户密码
+        checkAndResetPassword("customer_service");
+        
+        // 检查财务人员用户密码
+        checkAndResetPassword("finance_staff");
+        
         log.info("用户数据初始化完成");
+    }
+    
+    private void checkAndResetPassword(String username) {
+        SysUser user = userMapper.selectByUsername(username);
+        if (user != null) {
+            if (!passwordEncoder.matches("123456", user.getPassword())) {
+                log.info("{} 用户密码不匹配，正在重新加密...", username);
+                user.setPassword(passwordEncoder.encode("123456"));
+                userMapper.update(user);
+                log.info("{} 用户密码已更新", username);
+            } else {
+                log.info("{} 用户密码验证通过", username);
+            }
+        }
     }
 }
